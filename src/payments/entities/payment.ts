@@ -19,9 +19,6 @@ export class Payment {
   id: string
 
   @prop()
-  userId: Types.ObjectId
-
-  @prop()
   public createdAt: Date
 
   @prop()

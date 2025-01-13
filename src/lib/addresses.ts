@@ -1,0 +1,36 @@
+import { Chain } from './networks'
+
+// Polygon
+export const SPRITZPAY_POLYGON_ADDRESS = '0x0AC79b8711A92340e55ACf6ACceC03df6e181171'
+
+// ETH Mainnet
+export const SPRITZPAY_MAINNET_ADDRESS = '0x0fe08D911246566fdFD4afE0181a21ab810EE1C2'
+
+// BNB Chain
+export const SPRITZPAY_BSC_ADDRESS = '0x77eEb345cd1763B077E67732c50EeFFB918BdF77'
+
+// Optimism
+export const SPRITZPAY_OPTIMISM_ADDRESS = '0xC7689fCceB570B0BD397C847491Bc645BFDd88a3'
+
+// Arbitrum
+export const SPRITZPAY_ARBITRUM_ADDRESS = '0x3a01FCE88dae24A7B01620Db2F348aB1E50e2150'
+
+// Avalanche
+export const SPRITZPAY_AVALANCHE_ADDRESS = '0x1D26ebaf6AD7BAab6D94dD8d9841f960FAF2dEe2'
+
+// Base
+export const SPRITZPAY_BASE_ADDRESS = '0x652A545E3eBb5d1a81C7F03Fed19804f15AAbc3a'
+
+const SPRITZ_PAY_CONTRACT_ADDRESS: Record<Chain, `0x${string}`> = {
+  [Chain.Polygon]: SPRITZPAY_POLYGON_ADDRESS,
+  [Chain.Binance]: SPRITZPAY_BSC_ADDRESS,
+  [Chain.Ethereum]: SPRITZPAY_MAINNET_ADDRESS,
+  [Chain.Optimism]: SPRITZPAY_OPTIMISM_ADDRESS,
+  [Chain.Arbitrum]: SPRITZPAY_ARBITRUM_ADDRESS,
+  [Chain.Avalanche]: SPRITZPAY_AVALANCHE_ADDRESS,
+  [Chain.Base]: SPRITZPAY_BASE_ADDRESS,
+}
+
+export function getSpritzPayContractAddress(chain: Chain): `0x${string}` {
+  return SPRITZ_PAY_CONTRACT_ADDRESS[chain]
+}
