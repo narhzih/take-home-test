@@ -1,0 +1,12 @@
+.esbuild
+.serverless
+.idea
+node_modules
+.dynamodb
+coverage
+globalConfig.json
+schema.gql
+.webpack
+.husky
+.vscode 
+.DS_Store
