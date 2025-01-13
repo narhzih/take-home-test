@@ -1,0 +1,21 @@
+// {
+//   "id": "pmt_VeCfmkwGKb",
+//   "source": "acc_hmap9mbgfLcf9",
+//   "destination": "acc_YXDrjADGjC76U",
+//   "amount": 5000,
+//   "description": "Loan Pmt",
+//   "status": "pending",
+//   "estimated_completion_date": "2024-03-21",
+//   "source_trace_id": null,
+//   "source_settlement_date": "2024-03-15",
+//   "source_status": "pending",
+//   "destination_trace_id": null,
+//   "destination_settlement_date": "2024-03-21",
+//   "destination_status": "pending",
+//   "reversal_id": null,
+//   "fee": null,
+//   "error": null,
+//   "metadata": null,
+//   "created_at": "2024-03-14T16:15:26.074Z",
+//   "updated_at": "2024-03-14T16:15:26.074Z"
+// }
