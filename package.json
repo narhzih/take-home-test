@@ -2,13 +2,14 @@
   "name": "spritz-take-home",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "ts-node src/server.ts",
-    "start-listener": "ts-node src/blockchain-listener/listener.ts"
+    "start": "node --loader ts-node/esm --experimental-specifier-resolution=node src/server.ts",
+    "start-listener": "tsx watch src/blockchain-listener/listener.ts --env-file .env"
   },
   "devDependencies": {
     "@swc/core": "^1.10.7",
@@ -25,9 +26,15 @@
   },
   "dependencies": {
     "@typegoose/typegoose": "^12.10.1",
+    "@types/dotenv": "^8.2.3",
     "@types/express": "^5.0.0",
+    "body-parser": "^1.20.3",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "mongoose": "^8.9.4",
-    "viem": "^2.22.8"
+    "reflect-metadata": "^0.2.2",
+    "tsx": "^4.19.2",
+    "viem": "^2.22.8",
+    "zod": "^3.24.1"
   }
 }

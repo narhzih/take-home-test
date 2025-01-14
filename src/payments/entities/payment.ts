@@ -18,6 +18,9 @@ export class Payment {
 
   id: string
 
+  @prop({ required: false })
+  public externalId?: string
+
   @prop()
   public createdAt: Date
 

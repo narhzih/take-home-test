@@ -13,7 +13,7 @@ export interface ListenerTickResult {
 /**
  * TODO: Implement this function to fetch blockchain payments
  * Requirements:
- * 1. Use client.getLogs to fetch relevant events from the blockchain
+ * 1. Use client to fetch relevant events from the blockchain
  * 2. Parse the events into BlockchainPayment objects
  * 3. Return array of payments
  *
@@ -25,7 +25,7 @@ async function getPaymentsForBlockRange(
   { start, end }: { start: bigint; end: bigint },
 ): Promise<BlockchainPayment[]> {
   console.log('getPaymentsForBlockRange - analyzing range', { start, end })
-  throw new Error('Not implemented')
+  throw new Error('To be implemented')
 }
 
 /**
