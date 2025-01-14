@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --loader ts-node/esm --experimental-specifier-resolution=node src/server.ts",
-    "start-listener": "tsx watch src/blockchain-listener/listener.ts --env-file .env"
+    "start-listener": "node --loader ts-node/esm --experimental-specifier-resolution=node src/blockchain-listener/listener.ts"
   },
   "devDependencies": {
     "@swc/core": "^1.10.7",

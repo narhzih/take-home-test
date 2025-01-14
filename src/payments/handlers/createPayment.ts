@@ -25,6 +25,10 @@ export const createPayment: express.RequestHandler = async (req, res) => {
     const { amount } = result.data
 
     const payment = await PaymentModel.create({ amount })
+    if (!payment) {
+      res.status(500).json({ status: 'error', message: 'Failed to create payment' })
+      return
+    }
 
     res.status(200).json({ payment })
   } catch (error) {
