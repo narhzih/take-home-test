@@ -1,19 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Chain } from '../lib/networks'
-import { onListenerTick } from '../blockchain-listener/services/onListenerTick'
-import { BlockchainPaymentModel } from '../blockchain-listener/entities/BlockchainPayment'
-import * as viemModule from '../lib/viem'
+import { Chain } from '../../lib/networks'
+import { onListenerTick } from '../services/onListenerTick'
+import { BlockchainPaymentModel } from '../entities/BlockchainPayment'
+import { PaymentModel } from '../../payments/entities/payment'
+import * as viemModule from '../../lib/viem'
 import { PublicClient } from 'viem'
 import { mainnet } from 'viem/chains'
-import './mongo'
+import '../../__tests__/mongo'
 
-vi.mock('../lib/viem', () => ({
+// Mock viem
+vi.mock('../../lib/viem', () => ({
   createClientForChain: vi.fn(),
 }))
 
-describe('onListenerTick', () => {
+describe('Blockchain Listener', () => {
+  // Sample event log from a real transaction
   const samplePaymentLog = {
-    // transaction data from: 0x5db01a1daf2a2a226a35e50e212888be4efaa6f725be7bb25e2d6aa25f87fc7f
     address: '0x0fe08D911246566fdFD4afE0181a21ab810EE1C2' as `0x${string}`,
     blockHash:
       '0x678f0c446da08857488607ad00f35acaa80f7275f6c912cfc05ad61deb64612e' as `0x${string}`,
@@ -24,21 +26,19 @@ describe('onListenerTick', () => {
       '0x5db01a1daf2a2a226a35e50e212888be4efaa6f725be7bb25e2d6aa25f87fc7f' as `0x${string}`,
     transactionIndex: 0xca,
     topics: [
-      // topic[0]: Event signature
       '0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c' as `0x${string}`,
-      // topic[1]: From address (vitalik.eth)
       '0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045' as `0x${string}`,
-      // topic[2]: Source token (WETH)
       '0x000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2' as `0x${string}`,
-      // topic[3]: Payment token (USDC)
       '0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' as `0x${string}`,
     ],
   }
 
   let mockClient: Partial<PublicClient>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    await BlockchainPaymentModel.deleteMany({})
+    await PaymentModel.deleteMany({})
 
     // Create mock client
     mockClient = {
@@ -52,18 +52,17 @@ describe('onListenerTick', () => {
 
   afterEach(async () => {
     await BlockchainPaymentModel.deleteMany({})
+    await PaymentModel.deleteMany({})
   })
 
-  it('should successfully process new blockchain payments', async () => {
+  it('should detect and process new blockchain payments', async () => {
     const result = await onListenerTick(Chain.Ethereum)
 
-    // Verify the block number was fetched
+    // Verify blockchain interaction
     expect(mockClient.getBlockNumber).toHaveBeenCalledTimes(1)
-
-    // Verify logs were fetched
     expect(mockClient.getLogs).toHaveBeenCalledTimes(1)
 
-    // Check the returned data structure
+    // Verify return data structure
     expect(result).toMatchObject({
       lastProcessedBlock: 12345,
       payments: expect.arrayContaining([
@@ -75,17 +74,24 @@ describe('onListenerTick', () => {
       ]),
     })
 
-    // Verify payment was stored in database
-    const storedPayment = await BlockchainPaymentModel.findOne({
+    // Verify blockchain payment was stored
+    const storedBlockchainPayment = await BlockchainPaymentModel.findOne({
       chain: Chain.Ethereum,
       transactionHash: samplePaymentLog.transactionHash,
     })
-    expect(storedPayment).toBeTruthy()
+    expect(storedBlockchainPayment).toBeTruthy()
+
+    // Verify Method payment was created
+    const methodPayment = await PaymentModel.findOne({
+      blockchainPaymentId: samplePaymentLog.transactionHash,
+    })
+    expect(methodPayment).toBeTruthy()
+    expect(methodPayment?.methodPaymentId).toBeDefined()
+    expect(methodPayment?.status).toBe('pending')
   })
 
-  it('should handle empty block ranges with no payments', async () => {
+  it('should handle empty block ranges', async () => {
     mockClient.getLogs = vi.fn().mockResolvedValue([])
-
     const result = await onListenerTick(Chain.Ethereum)
 
     expect(result).toMatchObject({
@@ -94,17 +100,20 @@ describe('onListenerTick', () => {
     })
 
     // Verify no payments were stored
-    const count = await BlockchainPaymentModel.countDocuments()
-    expect(count).toBe(0)
+    const blockchainPaymentCount = await BlockchainPaymentModel.countDocuments()
+    expect(blockchainPaymentCount).toBe(0)
+
+    const methodPaymentCount = await PaymentModel.countDocuments()
+    expect(methodPaymentCount).toBe(0)
   })
 
-  it('should not store duplicate payments', async () => {
+  it('should prevent duplicate payment processing', async () => {
+    // Create existing blockchain payment
     await BlockchainPaymentModel.create({
       chain: Chain.Ethereum,
       transactionHash: samplePaymentLog.transactionHash,
       logIndex: samplePaymentLog.logIndex,
       blockNumber: Number(samplePaymentLog.blockNumber),
-      // Add other required fields...
       address: samplePaymentLog.address,
       topic0: samplePaymentLog.topics[0],
       topic1: samplePaymentLog.topics[1],
@@ -122,50 +131,70 @@ describe('onListenerTick', () => {
 
     await onListenerTick(Chain.Ethereum)
 
-    // Verify the payment was processed but not duplicated
-    const count = await BlockchainPaymentModel.countDocuments()
-    expect(count).toBe(1)
+    // Verify no duplicate payments were created
+    const blockchainPaymentCount = await BlockchainPaymentModel.countDocuments()
+    expect(blockchainPaymentCount).toBe(1)
+
+    const methodPaymentCount = await PaymentModel.countDocuments()
+    expect(methodPaymentCount).toBe(0) // No Method payment should be created for duplicate
   })
 
-  it('should handle blockchain client errors gracefully', async () => {
-    mockClient.getLogs = vi.fn().mockRejectedValue(new Error('Arghhh 🦁 🔥'))
+  it('should handle blockchain client errors', async () => {
+    mockClient.getLogs = vi.fn().mockRejectedValue(new Error('Network error'))
 
     await expect(onListenerTick(Chain.Ethereum)).rejects.toThrow(
       'Failed to fetch blockchain events',
     )
+
+    // Verify no payments were stored
+    const blockchainPaymentCount = await BlockchainPaymentModel.countDocuments()
+    expect(blockchainPaymentCount).toBe(0)
+
+    const methodPaymentCount = await PaymentModel.countDocuments()
+    expect(methodPaymentCount).toBe(0)
   })
 
-  it('should process multiple payments in a single block', async () => {
-    // Mock multiple payment logs
-    const multiplePaymentLogs = [
-      samplePaymentLog,
-      {
-        ...samplePaymentLog,
-        transactionHash: '0x1111111111111111111111111111111111111111' as `0x${string}`,
-        logIndex: 1,
-      },
-    ]
+  it('should continue processing remaining payments if one fails', async () => {
+    // Create two payment logs, one valid and one invalid
+    const invalidPaymentLog = {
+      ...samplePaymentLog,
+      transactionHash: '0x999' as `0x${string}`,
+      data: '0x0000', // Invalid data that will cause processing to fail
+    }
 
-    mockClient.getLogs = vi.fn().mockResolvedValue(multiplePaymentLogs)
+    mockClient.getLogs = vi.fn().mockResolvedValue([samplePaymentLog, invalidPaymentLog])
 
     const result = await onListenerTick(Chain.Ethereum)
 
+    // Should still process the valid payment
     expect(result.payments).toHaveLength(2)
 
-    // Verify both payments were stored
-    const count = await BlockchainPaymentModel.countDocuments()
-    expect(count).toBe(2)
+    // Check that the valid payment was stored
+    const validBlockchainPayment = await BlockchainPaymentModel.findOne({
+      transactionHash: samplePaymentLog.transactionHash,
+    })
+    expect(validBlockchainPayment).toBeTruthy()
+
+    const validMethodPayment = await PaymentModel.findOne({
+      blockchainPaymentId: samplePaymentLog.transactionHash,
+    })
+    expect(validMethodPayment).toBeTruthy()
+
+    // Invalid payment should not be stored
+    const invalidBlockchainPayment = await BlockchainPaymentModel.findOne({
+      transactionHash: invalidPaymentLog.transactionHash,
+    })
+    expect(invalidBlockchainPayment).toBeNull()
   })
 
-  it('should handle different chain configurations', async () => {
+  it('should support different blockchain networks', async () => {
     mockClient = {
       ...mockClient,
       chain: { name: Chain.Polygon.toUpperCase() } as unknown as typeof mainnet,
-      getBlockNumber: vi.fn().mockResolvedValue(BigInt(12345)),
       getLogs: vi.fn().mockResolvedValue([
         {
           ...samplePaymentLog,
-          address: '0x0AC79b8711A92340e55ACf6ACceC03df6e181171' as `0x${string}`, // Polygon contract address
+          address: '0x0AC79b8711A92340e55ACf6ACceC03df6e181171' as `0x${string}`, // Polygon contract
         },
       ]),
     }
@@ -177,9 +206,15 @@ describe('onListenerTick', () => {
       chain: Chain.Polygon,
     })
 
-    const storedPayment = await BlockchainPaymentModel.findOne({
+    // Verify payments were stored with correct chain
+    const blockchainPayment = await BlockchainPaymentModel.findOne({
       chain: Chain.Polygon,
     })
-    expect(storedPayment).toBeTruthy()
+    expect(blockchainPayment).toBeTruthy()
+
+    const methodPayment = await PaymentModel.findOne({
+      'metadata.chain': Chain.Polygon,
+    })
+    expect(methodPayment).toBeTruthy()
   })
 })
