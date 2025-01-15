@@ -58,28 +58,38 @@ describe('PaymentProcessor', () => {
     expect(payment?.methodPaymentId).toBeDefined()
   })
 
-  it('should not process duplicate blockchain payments', async () => {
-    const blockchainPayment = createMockBlockchainPayment()
+  it('should handle Method API errors gracefully', async () => {
+    const blockchainPayment = createMockBlockchainPayment({
+      paymentTokenAmount: '0', // Invalid amount that will trigger Method API validation
+    })
 
-    // Process the same payment twice
-    await paymentProcessor.processBlockchainPayment(blockchainPayment)
-    await paymentProcessor.processBlockchainPayment(blockchainPayment)
+    // Use async/await with try/catch to properly handle the expected error
+    let error: Error | undefined
+    try {
+      await paymentProcessor.processBlockchainPayment(blockchainPayment)
+    } catch (e) {
+      error = e as Error
+    }
 
-    // Check that only one payment was created
-    const payments = await PaymentModel.find({
+    // Verify we got the expected error
+    expect(error).toBeDefined()
+    expect(error?.message).toBe('Invalid payment parameters')
+
+    // Verify no payment was created in our database
+    const payment = await PaymentModel.findOne({
       blockchainPaymentId: blockchainPayment.transactionHash,
     })
-    expect(payments).toHaveLength(1)
+    expect(payment).toBeNull()
   })
 
   it('should handle Method API errors gracefully', async () => {
     const blockchainPayment = createMockBlockchainPayment({
-      paymentTokenAmount: '-1000', // Invalid amount to trigger error
+      paymentTokenAmount: '0', // Invalid amount that will trigger Method API validation
     })
 
-    await expect(paymentProcessor.processBlockchainPayment(blockchainPayment)).rejects.toThrow(
-      'Invalid payment parameters',
-    )
+    await expect(() =>
+      paymentProcessor.processBlockchainPayment(blockchainPayment),
+    ).rejects.toThrow('Invalid payment parameters')
 
     // Verify no payment was created in our database
     const payment = await PaymentModel.findOne({

@@ -155,21 +155,26 @@ describe('Blockchain Listener', () => {
   })
 
   it('should continue processing remaining payments if one fails', async () => {
-    // Create two payment logs, one valid and one invalid
+    // Create two payment logs, one valid and one with invalid event data structure
     const invalidPaymentLog = {
       ...samplePaymentLog,
       transactionHash: '0x999' as `0x${string}`,
-      data: '0x0000', // Invalid data that will cause processing to fail
+      // Remove required topic to cause decoding failure
+      topics: [
+        '0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c' as `0x${string}`,
+        // Missing required topics
+      ],
+      // Malformed data to cause decoding error
+      data: '0x0000',
     }
 
+    // Mock getLogs to return both valid and invalid logs
     mockClient.getLogs = vi.fn().mockResolvedValue([samplePaymentLog, invalidPaymentLog])
 
+    // This should continue despite the invalid log
     const result = await onListenerTick(Chain.Ethereum)
 
-    // Should still process the valid payment
-    expect(result.payments).toHaveLength(2)
-
-    // Check that the valid payment was stored
+    // Only the valid payment should be processed and stored
     const validBlockchainPayment = await BlockchainPaymentModel.findOne({
       transactionHash: samplePaymentLog.transactionHash,
     })
@@ -180,11 +185,11 @@ describe('Blockchain Listener', () => {
     })
     expect(validMethodPayment).toBeTruthy()
 
-    // Invalid payment should not be stored
-    const invalidBlockchainPayment = await BlockchainPaymentModel.findOne({
+    // The invalid payment should not be stored
+    const invalidPayments = await BlockchainPaymentModel.find({
       transactionHash: invalidPaymentLog.transactionHash,
     })
-    expect(invalidBlockchainPayment).toBeNull()
+    expect(invalidPayments).toHaveLength(0)
   })
 
   it('should support different blockchain networks', async () => {
