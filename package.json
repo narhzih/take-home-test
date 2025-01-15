@@ -9,7 +9,11 @@
   },
   "scripts": {
     "start": "node --loader ts-node/esm --experimental-specifier-resolution=node src/server.ts",
-    "start-listener": "node --loader ts-node/esm --experimental-specifier-resolution=node src/blockchain-listener/listener.ts"
+    "start-listener": "node --loader ts-node/esm --experimental-specifier-resolution=node src/blockchain-listener/listener.ts",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@swc/core": "^1.10.7",

@@ -19,7 +19,7 @@ export class BlockchainPayment {
 
   id: string
 
-  @prop()
+  @prop({ type: String, enum: Chain })
   chain: Chain
 
   @prop()

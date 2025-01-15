@@ -15,8 +15,8 @@ export default defineConfig({
     root: './',
     setupFiles: [
       './src/__tests__/mongo.ts',
-      './node_modules/vitest-dynamodb-lite',
-      './src/__tests__/mocks.ts',
+      // './node_modules/vitest-dynamodb-lite',
+      // './src/__tests__/mocks.ts',
     ],
     outputFile: {
       junit: './reports/junit/test-results.xml',
