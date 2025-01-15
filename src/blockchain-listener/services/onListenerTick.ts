@@ -3,6 +3,8 @@ import { Chain } from '../../lib/networks'
 import { createClientForChain } from '../../lib/viem'
 import { BlockchainPayment } from '../types'
 import { BlockchainPaymentModel } from '../entities/BlockchainPayment'
+import { PaymentProcessor } from '../../payments/services/method/processor'
+import { MethodMockClient } from '../../payments/services/method/client'
 
 /**
  * The signature below can be interpreted as:
@@ -22,16 +24,10 @@ export interface ListenerTickResult {
   payments: BlockchainPayment[]
 }
 
-/**
- * TODO: Implement this function to fetch blockchain payments
- * Requirements:
- * 1. Use client to fetch relevant events from the blockchain
- * 2. Parse the events into BlockchainPayment objects
- * 3. Return array of payments
- *
- * @param client - Viem public client for blockchain interaction
- * @param range - Block range to fetch (start and end blocks)
- */
+// Initialize Method client and payment processor
+const methodClient = new MethodMockClient()
+const paymentProcessor = new PaymentProcessor(methodClient)
+
 async function getPaymentsForBlockRange(
   client: PublicClient,
   { start, end }: { start: bigint; end: bigint },
@@ -67,7 +63,7 @@ async function getPaymentsForBlockRange(
         chain: client.chain?.name.toLowerCase() as Chain,
         transactionHash: log.transactionHash,
         to: log.address as `0x${string}`,
-        topic0: log.topics[0]!, // I'm not entirely sure that this is always set but, let's see 🥴.
+        topic0: log.topics[0]!,
         topic1: log.topics[1]!,
         topic2: log.topics[2]!,
         address: log.address as `0x${string}`,
@@ -92,22 +88,30 @@ async function getPaymentsForBlockRange(
 
 async function storeAndProcessPayments(payments: BlockchainPayment[]): Promise<void> {
   for (const payment of payments) {
-    // Check if payment already exists to prevent double processing
-    const existingPayment = await BlockchainPaymentModel.findOne({
-      chain: payment.chain,
-      transactionHash: payment.transactionHash,
-      logIndex: payment.logIndex,
-    })
+    try {
+      // Check if payment already exists to prevent double processing
+      const existingPayment = await BlockchainPaymentModel.findOne({
+        chain: payment.chain,
+        transactionHash: payment.transactionHash,
+        logIndex: payment.logIndex,
+      })
 
-    if (!existingPayment) {
-      // Store new payment
-      const blockchainPayment = await BlockchainPaymentModel.create(payment)
+      if (!existingPayment) {
+        // Store blockchain payment
+        const blockchainPayment = await BlockchainPaymentModel.create(payment)
+        console.log(`Stored new blockchain payment: ${blockchainPayment.id}`)
 
-      // Here the payment processing will be triggered via Method API
-      // This will be implemented in a separate service, once I'm done reviewing Method's API
-      console.log(`Stored new blockchain payment: ${blockchainPayment.id}`)
-    } else {
-      console.log(`Payment already processed: ${existingPayment.id}`)
+        // Process payment through Method API
+        await paymentProcessor.processBlockchainPayment(payment)
+        console.log(
+          `Processed payment through Method API for transaction: ${payment.transactionHash}`,
+        )
+      } else {
+        console.log(`Payment already processed: ${existingPayment.id}`)
+      }
+    } catch (error) {
+      console.error(`Error processing payment ${payment.transactionHash}:`, error)
+      // Continue processing other payments even if one fails
     }
   }
 }
