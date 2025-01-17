@@ -11,12 +11,16 @@ export class PaymentProcessor {
    */
   async processBlockchainPayment(blockchainPayment: BlockchainPayment): Promise<void> {
     try {
-      // Check if payment was already processed
-      const existingPayment = await PaymentModel.findOne({
-        blockchainPaymentId: blockchainPayment.transactionHash,
-      })
+      // Convert bytes32 paymentReference to MongoDB ObjectId format
+      const paymentId = blockchainPayment.paymentReference.slice(-24)
 
-      if (existingPayment) {
+      const existingPayment = await PaymentModel.findById(paymentId)
+      if (!existingPayment) {
+        throw new Error(`Payment not found for reference: ${paymentId}`)
+      }
+
+      // Check if payment was already processed
+      if (existingPayment.blockchainPaymentId) {
         console.log(
           `Payment already processed for transaction: ${blockchainPayment.transactionHash}`,
         )
@@ -37,33 +41,29 @@ export class PaymentProcessor {
         },
       }
 
-      // Create payment in Method
       const methodPayment = await this.methodClient.createPayment(methodPaymentRequest)
 
-      // Create payment record in our database
-      const payment = await PaymentModel.create({
-        amount: methodPayment.amount,
-        methodPaymentId: methodPayment.id,
-        status: methodPayment.status,
-        blockchainPaymentId: blockchainPayment.transactionHash,
-        sourceAddress: blockchainPayment.from,
-        paymentReference: blockchainPayment.paymentReference,
-        metadata: {
-          chain: blockchainPayment.chain,
-          blockNumber: blockchainPayment.blockNumber,
-          sourceToken: blockchainPayment.sourceToken,
-          sourceTokenAmount: blockchainPayment.sourceTokenAmount,
-          paymentToken: blockchainPayment.paymentToken,
-          paymentTokenAmount: blockchainPayment.paymentTokenAmount,
-          methodPayment: {
-            estimatedCompletionDate: methodPayment.estimated_completion_date,
-            sourceSettlementDate: methodPayment.source_settlement_date,
-          },
+      existingPayment.methodPaymentId = methodPayment.id
+      existingPayment.status = methodPayment.status
+      existingPayment.blockchainPaymentId = blockchainPayment.transactionHash
+      existingPayment.sourceAddress = blockchainPayment.from
+      existingPayment.metadata = {
+        chain: blockchainPayment.chain,
+        blockNumber: blockchainPayment.blockNumber,
+        sourceToken: blockchainPayment.sourceToken,
+        sourceTokenAmount: blockchainPayment.sourceTokenAmount,
+        paymentToken: blockchainPayment.paymentToken,
+        paymentTokenAmount: blockchainPayment.paymentTokenAmount,
+        methodPayment: {
+          estimatedCompletionDate: methodPayment.estimated_completion_date,
+          sourceSettlementDate: methodPayment.source_settlement_date,
         },
-      })
+      }
+
+      await existingPayment.save()
 
       console.log(
-        `Created payment ${payment.id} for blockchain transaction ${blockchainPayment.transactionHash}`,
+        `Updated payment ${existingPayment.id} for blockchain transaction ${blockchainPayment.transactionHash}`,
       )
     } catch (error) {
       if (error instanceof MethodAPIError) {
