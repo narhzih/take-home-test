@@ -24,13 +24,19 @@ export const createPayment: express.RequestHandler = async (req, res) => {
 
     const { amount } = result.data
 
-    const payment = await PaymentModel.create({ amount })
+    const payment = await PaymentModel.create({
+      amount,
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
     if (!payment) {
       res.status(500).json({ status: 'error', message: 'Failed to create payment' })
       return
     }
 
-    res.status(200).json({ payment })
+    res.status(200).json({ payment, paymentReference: payment._id })
   } catch (error) {
     console.error('Error in createPayment:', error)
     res.status(500).json({ status: 'error', message: 'Internal server error' })
